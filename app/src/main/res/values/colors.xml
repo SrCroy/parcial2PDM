@@ -1,5 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Colores básicos -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Colores principales (modo claro y modo oscuro) -->
+    <color name="purple_300">#BB86FC</color>
+    <color name="purple_500">#6200EE</color>
+    <color name="purple_700">#3700B3</color>
+
+    <!-- Colores secundarios -->
+    <color name="teal_100">#80CBC4</color>
+    <color name="teal_200">#03DAC5</color>
+    <color name="teal_700">#018786</color>
+
+    <!-- Colores neutros y funcionales -->
+    <color name="gray_light">#F5F5F5</color>
+    <color name="gray_dark">#424242</color>
+    <color name="background">#F0F2F5</color>
+    <color name="error_red">#B00020</color>
+
+    <!-- Color de fondo para modo oscuro -->
+    <color name="dark_background">#121212</color>
 </resources>

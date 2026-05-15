@@ -1,7 +1,16 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme for NIGHT mode -->
     <style name="Base.Theme.Parcial2PDM" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <!-- Colores para modo oscuro -->
+        <item name="colorPrimary">@color/purple_300</item>
+        <item name="colorPrimaryVariant">@color/purple_500</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_100</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:windowBackground">@color/dark_background</item>
     </style>
+
+    <style name="Theme.Parcial2PDM" parent="Base.Theme.Parcial2PDM" />
 </resources>

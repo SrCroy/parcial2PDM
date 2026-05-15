@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/mapa"
+        android:title="Mapa"
+        android:icon="@drawable/mapa">
+    </item>
+    <item
+        android:id="@+id/producto"
+        android:title="Producto"
+        android:icon="@drawable/producto">
+    </item>
+    <item
+        android:id="@+id/inventario"
+        android:title="Inventario"
+        android:icon="@drawable/inventario">
+    </item>
+    <item
+        android:id="@+id/camaraAr"
+        android:title="Camara AR"
+        android:icon="@drawable/realidad">
+    </item>
+</menu>

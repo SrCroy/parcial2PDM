@@ -12,6 +12,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Parcial2PDM">
         <activity
+            android:name=".Dashboard"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
