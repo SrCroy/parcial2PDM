@@ -2,12 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!--    permission para el gps-->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
-
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!--compatibilidad para camara ar-->
+    <uses-feature
+        android:name="android.hardware.camera.ar"
+        android:required="true" />
 
     <application
         android:allowBackup="true"
@@ -19,6 +26,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Parcial2PDM">
 
+        <!--        metadata arcore-->
+        <meta-data
+            android:name="com.google.ar.core"
+            android:value="required" />
+
+    <!--        provider para cam-->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="com.example.parcial2pdm.provider"
@@ -28,10 +41,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
-        <activity
-            android:name=".Dashboard"
-            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
@@ -42,20 +51,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!--        metadatos arcore-->
-        <meta-data
-            android:name="com.google.ar.core"
-            android:value="required" />
-        <!--        provider para la camara-->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="com.example.parcial2pdm.provider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+
+        <activity
+            android:name=".Dashboard"
+            android:exported="false" />
+
     </application>
 
 </manifest>
