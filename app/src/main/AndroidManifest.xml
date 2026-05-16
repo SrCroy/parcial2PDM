@@ -42,6 +42,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!--        metadatos arcore-->
+        <meta-data
+            android:name="com.google.ar.core"
+            android:value="required" />
         <!--        provider para la camara-->
         <provider
             android:name="androidx.core.content.FileProvider"
