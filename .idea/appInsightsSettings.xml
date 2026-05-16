@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.parcial2pdm" />
+                  <option name="mobileSdkAppId" value="1:646500142633:android:12382b0c98f8ed68775638" />
+                  <option name="projectId" value="parcial2pdm-80efa" />
+                  <option name="projectNumber" value="646500142633" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
