@@ -51,5 +51,13 @@ dependencies {
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-auth'
 
+    // Firebase Storage:para el registro de imagenes de referencia y modelos 3D
+    implementation 'com.google.firebase:firebase-storage'
 
+    // Google Play Services Location: para obtener las coordenadas geograficas mediante GPS
+    implementation 'com.google.android.gms:play-services-location:21.2.0'
+
+    // ARCore: para la integracion con ARCore y renderizado 3D
+    // Utilizaremos la librería oficial de Sceneform mantenida por la comunidad para Java
+    implementation 'com.gorisse.thomas.sceneform:sceneform:1.23.0'
 }
