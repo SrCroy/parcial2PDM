@@ -24,11 +24,9 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.AuthResult;
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
-import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
     private EditText etEmail, etPassword;
@@ -55,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
                     .setProjectId("parcial2pdm-80efa")
                     .setStorageBucket("parcial2pdm-80efa.firebasestorage.app")
                     .build();
-
             FirebaseApp.initializeApp(this, options);
         }
 
