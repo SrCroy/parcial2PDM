@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class SucursalAdapter extends RecyclerView.Adapter<SucursalAdapter.SucursalViewHolder> {
+
     private List<Sucursal> listaSucursales;
     private Listener listener;
 
@@ -42,8 +43,8 @@ public class SucursalAdapter extends RecyclerView.Adapter<SucursalAdapter.Sucurs
         float kilometros = sucursal.getDistanciaMetros() / 1000f;
         holder.txtDistancia.setText(String.format(Locale.US, "A %.2f km de ti", kilometros));
 
-        //logica de colores y estados dinamica
         holder.layoutContenedor.setBackgroundColor(Color.WHITE);
+
         if (kilometros < 10.0) {
             if (position == 0) {
                 holder.txtEstado.setText("⭐ SUCURSAL MÁS CERCANA");
@@ -63,7 +64,9 @@ public class SucursalAdapter extends RecyclerView.Adapter<SucursalAdapter.Sucurs
     }
 
     @Override
-    public int getItemCount() { return listaSucursales.size(); }
+    public int getItemCount() {
+        return listaSucursales.size();
+    }
 
     public class SucursalViewHolder extends RecyclerView.ViewHolder {
         TextView txtNombre, txtDistancia, txtEstado;

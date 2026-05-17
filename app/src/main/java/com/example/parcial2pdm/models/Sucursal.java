@@ -7,9 +7,11 @@ public class Sucursal {
     private String nombre;
     private double latitud;
     private double longitud;
-    private float distanciaMetros; //no se guarda en Firebase
+    private float distanciaMetros;
 
-    public Sucursal() {} //obligatorio para Firebase
+    // CRÍTICO: Firebase necesita este constructor vacío obligatoriamente
+    public Sucursal() {
+    }
 
     public Sucursal(String id, String nombre, double latitud, double longitud) {
         this.id = id;

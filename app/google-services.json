@@ -1,26 +1,37 @@
 {
   "project_info": {
-    "project_number": "1019813892737",
-    "project_id": "ffprueba-e7c38",
-    "storage_bucket": "ffprueba-e7c38.firebasestorage.app"
+    "project_number": "646500142633",
+    "firebase_url": "https://parcial2pdm-80efa-default-rtdb.firebaseio.com",
+    "project_id": "parcial2pdm-80efa",
+    "storage_bucket": "parcial2pdm-80efa.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1019813892737:android:871ff91e6c993c67fa7380",
+        "mobilesdk_app_id": "1:646500142633:android:12382b0c98f8ed68775638",
         "android_client_info": {
           "package_name": "com.example.parcial2pdm"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "646500142633-2qj9omc6tf1mivnd8m68o79t0ck9abj8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyDyY8eyKfKXVfdWQpZnReKXEfDR0xhvA1g"
+          "current_key": "AIzaSyBR1nJa4DLe_cHSiMK63jwbira3iT0m-2Q"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "646500142633-2qj9omc6tf1mivnd8m68o79t0ck9abj8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

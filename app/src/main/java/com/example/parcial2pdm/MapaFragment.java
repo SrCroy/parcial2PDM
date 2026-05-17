@@ -3,115 +3,152 @@ package com.example.parcial2pdm;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.cardview.widget.CardView;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.parcial2pdm.adapters.SucursalAdapter;
+import com.example.parcial2pdm.models.Sucursal;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 public class MapaFragment extends Fragment {
 
     private TextView txtLatitud, txtLongitud;
-    private LinearLayout containerSucursales;
+    private RecyclerView rvSucursales;
     private MaterialButton btnActualizarUbicacion;
+    private FloatingActionButton btnAgregarSucursal;
+
     private FusedLocationProviderClient fusedLocationClient;
+    private DatabaseReference mDatabase;
 
-    //lista contenedora de nuestras sucursales mapeadas
-    private List<SucursalData> listaSucursales;
+    private List<Sucursal> listaSucursales;
+    private SucursalAdapter adapter;
+    private Location ultimaUbicacionConocida;
 
+    // Lanzador para solicitar permisos en tiempo de ejecución de forma segura
     private final ActivityResultLauncher<String[]> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
                 if (fineLocationGranted != null && fineLocationGranted) {
                     obtenerUbicacionActual();
                 } else {
-                    Toast.makeText(getContext(), "Se requieren permisos de ubicación", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getContext(), "Se requieren permisos de ubicación para calcular cercanías", Toast.LENGTH_LONG).show();
                 }
             });
 
     public MapaFragment() {
-        //constructor vacio requerido
+        // Constructor vacío obligatorio
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
+        // CORRECCIÓN DE ARQUITECTURA: Forzamos la referencia directa limpiando el búfer de conexiones anteriores
+        FirebaseDatabase database = FirebaseDatabase.getInstance("https://parcial2pdm-80efa-default-rtdb.firebaseio.com/");
+        mDatabase = database.getReference("sucursales");
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_mapa, container, false);
 
+        // Enlace de componentes del XML (fragment_mapa.xml)
         txtLatitud = view.findViewById(R.id.txtLatitud);
         txtLongitud = view.findViewById(R.id.txtLongitud);
-        containerSucursales = view.findViewById(R.id.containerSucursales);
+        rvSucursales = view.findViewById(R.id.rvSucursales);
         btnActualizarUbicacion = view.findViewById(R.id.btnActualizarUbicacion);
+        btnAgregarSucursal = view.findViewById(R.id.btnAgregarSucursal);
 
-        //inicializar los objetos de las sucursales vinculando las vistas del XML
-        inicializarSucursalesMapeadas(view);
+        // Configuración inicial del listado dinámico
+        listaSucursales = new ArrayList<>();
+        rvSucursales.setLayoutManager(new LinearLayoutManager(getContext()));
 
+        adapter = new SucursalAdapter(listaSucursales, new SucursalAdapter.Listener() {
+            @Override
+            public void onEdit(Sucursal sucursal) {
+                abrirFormulario(sucursal);
+            }
+
+            @Override
+            public void onDelete(Sucursal sucursal) {
+                eliminarSucursal(sucursal);
+            }
+        });
+        rvSucursales.setAdapter(adapter);
+
+        // Activación del puente de escucha en tiempo real con Firebase
+        escucharBaseDeDatos();
+
+        // Asignación de oyentes de clics
         btnActualizarUbicacion.setOnClickListener(v -> verificarPermisosYObtenerUbicacion());
+        btnAgregarSucursal.setOnClickListener(v -> abrirFormulario(null));
 
+        // Intento de disparo inicial del GPS para poblar la ubicación actual
         verificarPermisosYObtenerUbicacion();
 
         return view;
     }
 
-    private void inicializarSucursalesMapeadas(View view) {
-        listaSucursales = new ArrayList<>();
+    private void escucharBaseDeDatos() {
+        mDatabase.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                listaSucursales.clear();
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    Sucursal s = data.getValue(Sucursal.class);
+                    if (s != null) {
+                        listaSucursales.add(s);
+                    }
+                }
+                if (ultimaUbicacionConocida != null) {
+                    procesarCercaniaYOrdenar(ultimaUbicacionConocida);
+                } else {
+                    adapter.notifyDataSetChanged();
+                }
+            }
 
-        // 1.centro (Sivar)
-        listaSucursales.add(new SucursalData("Sucursal Centro", 13.6929, -89.2182,
-                view.findViewById(R.id.cardCentro),
-                view.findViewById(R.id.txtDistanciaCentro),
-                view.findViewById(R.id.txtEstadoCentro),
-                view.findViewById(R.id.layoutLayoutCentro)));
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                // AGREGA ESTA LÍNEA DE LOG:
+                android.util.Log.e("FIREBASE_ERROR", "Detalle del rechazo: " + error.getMessage() + " -> " + error.getDetails());
 
-        // 2.oriente principal (San Miguel Centro)
-        listaSucursales.add(new SucursalData("Sucursal Oriente - Principal", 13.4833, -88.1833,
-                view.findViewById(R.id.cardOrientePrincipal),
-                view.findViewById(R.id.txtDistanciaOrientePrincipal),
-                view.findViewById(R.id.txtEstadoOrientePrincipal),
-                view.findViewById(R.id.layoutLayoutOrientePrincipal)));
-
-        // 3.oriente norte (DMS convertida)
-        listaSucursales.add(new SucursalData("Sucursal Oriente - Norte", 13.4621, -88.1649,
-                view.findViewById(R.id.cardOrienteNorte),
-                view.findViewById(R.id.txtDistanciaOrienteNorte),
-                view.findViewById(R.id.txtEstadoOrienteNorte),
-                view.findViewById(R.id.layoutLayoutOrienteNorte)));
-
-        // 4.oriente sur (DMS convertida)
-        listaSucursales.add(new SucursalData("Sucursal Oriente - Sur", 13.4399, -88.1575,
-                view.findViewById(R.id.cardOrienteSur),
-                view.findViewById(R.id.txtDistanciaOrienteSur),
-                view.findViewById(R.id.txtEstadoOrienteSur),
-                view.findViewById(R.id.layoutLayoutOrienteSur)));
+                Toast.makeText(getContext(), "Error de Firebase: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void verificarPermisosYObtenerUbicacion() {
@@ -127,95 +164,110 @@ public class MapaFragment extends Fragment {
 
     @SuppressLint("MissingPermission")
     private void obtenerUbicacionActual() {
+        // Forzado de precisión alta omitiendo la memoria caché antigua del emulador
         fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                 .addOnSuccessListener(requireActivity(), new OnSuccessListener<Location>() {
                     @Override
                     public void onSuccess(Location location) {
                         if (location != null) {
-                            double latitud = location.getLatitude();
-                            double longitud = location.getLongitude();
-
-                            txtLatitud.setText("Latitud: " + latitud);
-                            txtLongitud.setText("Longitud: " + longitud);
-
-                            procesarCercaniaYOrdenarVistas(location);
+                            ultimaUbicacionConocida = location;
+                            txtLatitud.setText("Latitud: " + location.getLatitude());
+                            txtLongitud.setText("Longitud: " + location.getLongitude());
+                            procesarCercaniaYOrdenar(location);
                         } else {
-                            Toast.makeText(getContext(), "GPS no disponible temporalmente", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getContext(), "GPS inestable. Por favor, intente de nuevo.", Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
     }
 
-    private void procesarCercaniaYOrdenarVistas(Location ubicacionUsuario) {
-        // 1.calcular las distancias en metros para cada sucursal
-        for (SucursalData sucursal : listaSucursales) {
+    private void procesarCercaniaYOrdenar(Location ubicacionUsuario) {
+        // Cálculo matemático lineal de distancias usando el hardware del dispositivo
+        for (Sucursal sucursal : listaSucursales) {
             Location locSucursal = new Location("");
-            locSucursal.setLatitude(sucursal.latitud);
-            locSucursal.setLongitude(sucursal.longitud);
-
-            sucursal.distanciaMetros = ubicacionUsuario.distanceTo(locSucursal);
+            locSucursal.setLatitude(sucursal.getLatitud());
+            locSucursal.setLongitude(sucursal.getLongitud());
+            sucursal.setDistanciaMetros(ubicacionUsuario.distanceTo(locSucursal));
         }
 
-        // 2.ordenar la lista de menor a mayor distancia usando un comparador
-        listaSucursales.sort((s1, s2) -> Float.compare(s1.distanciaMetros, s2.distanciaMetros));
-
-        // 3.remover físicamente todas las tarjetas del contenedor en la UI
-        containerSucursales.removeAllViews();
-
-        // 4.volver a agregarlas al contenedor ya ordenadas y aplicar los estilos
-        for (int i = 0; i < listaSucursales.size(); i++) {
-            SucursalData sucursal = listaSucursales.get(i);
-
-            //convertir metros a kilómetros
-            float kilometros = sucursal.distanciaMetros / 1000f;
-            sucursal.txtDistancia.setText(String.format(Locale.US, "A %.2f km de ti", kilometros));
-
-            //desprender de su padre anterior si es necesario e insertar al contenedor en orden
-            if (sucursal.cardView.getParent() != null) {
-                ((ViewGroup) sucursal.cardView.getParent()).removeView(sucursal.cardView);
+        // Ordenamiento por proximidad espacial en la UI (Posición 0 es la más cercana)
+        Collections.sort(listaSucursales, new Comparator<Sucursal>() {
+            @Override
+            public int compare(Sucursal s1, Sucursal s2) {
+                return Float.compare(s1.getDistanciaMetros(), s2.getDistanciaMetros());
             }
-            containerSucursales.addView(sucursal.cardView);
+        });
 
-            //reseteo de estilos base
-            sucursal.layoutContenedorInterno.setBackgroundColor(Color.WHITE);
-
-            //logica de estados: si esta a menos de 10km se asume que estas operando dentro de esa sucursal
-            if (kilometros < 10.0) {
-                sucursal.txtEstado.setText("🟢 Operando en esta área");
-                sucursal.txtEstado.setTextColor(Color.parseColor("#388E3C")); // Verde
-            } else {
-                sucursal.txtEstado.setText("❌ Fuera de rango de la sucursal");
-                sucursal.txtEstado.setTextColor(Color.parseColor("#757575")); // Gris oscuro
-            }
-
-            //resaltar visualmente la tarjeta que quedo en primer lugar (la mas cercana)
-            if (i == 0) {
-                sucursal.txtEstado.setText("⭐ SUCURSAL MÁS CERCANA");
-                sucursal.txtEstado.setTextColor(Color.parseColor("#7B1FA2")); //morado oscuro
-                sucursal.layoutContenedorInterno.setBackgroundColor(Color.parseColor("#F3E5F5")); //fondo lila suave
-            }
-        }
+        adapter.notifyDataSetChanged();
     }
 
-    //estructura contenedora interna (modelo de datos local para el algoritmo de ordenamiento)
-    private static class SucursalData {
-        String nombre;
-        double latitud;
-        double longitud;
-        float distanciaMetros;
-        CardView cardView;
-        TextView txtDistancia;
-        TextView txtEstado;
-        View layoutContenedorInterno;
+    private void abrirFormulario(@Nullable Sucursal sucursalEditar) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+        builder.setTitle(sucursalEditar == null ? "Nueva Sucursal" : "Editar Sucursal");
 
-        SucursalData(String nombre, double latitud, double longitud, CardView cardView, TextView txtDistancia, TextView txtEstado, View layoutContenedorInterno) {
-            this.nombre = nombre;
-            this.latitud = latitud;
-            this.longitud = longitud;
-            this.cardView = cardView;
-            this.txtDistancia = txtDistancia;
-            this.txtEstado = txtEstado;
-            this.layoutContenedorInterno = layoutContenedorInterno;
+        // Construcción estructurada del contenedor del formulario flotante
+        LinearLayout layout = new LinearLayout(getContext());
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(60, 30, 60, 30);
+
+        final EditText etNombre = new EditText(getContext());
+        etNombre.setHint("Nombre de la Sucursal");
+        layout.addView(etNombre);
+
+        final EditText etLat = new EditText(getContext());
+        etLat.setHint("Latitud (Ej: 13.6929)");
+        etLat.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+        layout.addView(etLat);
+
+        final EditText etLon = new EditText(getContext());
+        etLon.setHint("Longitud (Ej: -89.2182)");
+        etLon.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+        layout.addView(etLon);
+
+        // Inyección de datos previos si el flujo detecta una edición
+        if (sucursalEditar != null) {
+            etNombre.setText(sucursalEditar.getNombre());
+            etLat.setText(String.valueOf(sucursalEditar.getLatitud()));
+            etLon.setText(String.valueOf(sucursalEditar.getLongitud()));
         }
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("Guardar", (dialog, which) -> {
+            String nombre = etNombre.getText().toString().trim();
+            String latStr = etLat.getText().toString().trim();
+            String lonStr = etLon.getText().toString().trim();
+
+            if (TextUtils.isEmpty(nombre) || TextUtils.isEmpty(latStr) || TextUtils.isEmpty(lonStr)) {
+                Toast.makeText(getContext(), "Campos obligatorios vacíos", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            double lat = Double.parseDouble(latStr);
+            double lon = Double.parseDouble(lonStr);
+
+            // Generación de llave única persistente si es un registro nuevo
+            String id = sucursalEditar != null ? sucursalEditar.getId() : mDatabase.push().getKey();
+            if (id != null) {
+                Sucursal nuevaSucursal = new Sucursal(id, nombre, lat, lon);
+                mDatabase.child(id).setValue(nuevaSucursal)
+                        .addOnSuccessListener(aVoid -> Toast.makeText(getContext(), "Guardado correctamente", Toast.LENGTH_SHORT).show());
+            }
+        });
+
+        builder.setNegativeButton("Cancelar", null);
+        builder.show();
+    }
+
+    private void eliminarSucursal(Sucursal sucursal) {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Eliminar Sucursal")
+                .setMessage("¿Confirmas la eliminación permanente de " + sucursal.getNombre() + "?")
+                .setPositiveButton("Eliminar", (dialog, which) -> {
+                    mDatabase.child(sucursal.getId()).removeValue()
+                            .addOnSuccessListener(aVoid -> Toast.makeText(getContext(), "Eliminada con éxito", Toast.LENGTH_SHORT).show());
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 }
