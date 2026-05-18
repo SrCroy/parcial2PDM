@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="100dp"
+    android:layout_height="120dp"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="4dp">
+
+        <ImageView
+            android:id="@+id/imgProducto"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/login" />
+
+        <TextView
+            android:id="@+id/txtNombre"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="2"
+            android:text="Nombre"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtPrecio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="$0.00"
+            android:textColor="@color/purple_700"
+            android:textSize="10sp" />
+
+        <!-- Hidden views to maintain compatibility with ProductoViewHolder -->
+        <TextView android:id="@+id/txtCategoria" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+        <TextView android:id="@+id/txtStock" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+        <ImageButton android:id="@+id/btnEditar" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+        <ImageButton android:id="@+id/btnEliminar" android:visibility="gone" android:layout_width="0dp" android:layout_height="0dp" />
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

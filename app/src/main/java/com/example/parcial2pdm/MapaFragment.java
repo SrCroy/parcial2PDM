@@ -107,6 +107,19 @@ public class MapaFragment extends Fragment {
             public void onDelete(Sucursal sucursal) {
                 eliminarSucursal(sucursal);
             }
+
+            @Override
+            public void onClick(Sucursal sucursal) {
+                // Al hacer clic en la sucursal, navegamos al fragmento de AR pasando el ID
+                if (getActivity() instanceof Dashboard) {
+                    CamaraARFragment fragment = CamaraARFragment.newInstance(sucursal.getId());
+                    ((Dashboard) getActivity()).getSupportFragmentManager().beginTransaction()
+                            .replace(R.id.container, fragment)
+                            .addToBackStack(null)
+                            .commit();
+                    Toast.makeText(getContext(), "Abriendo AR para: " + sucursal.getNombre(), Toast.LENGTH_SHORT).show();
+                }
+            }
         });
         rvSucursales.setAdapter(adapter);
 

@@ -11,6 +11,11 @@ recyclerview = "1.4.0"
 firebaseAuth = "24.1.0"
 playServicesTasks = "18.4.1"
 firebaseCommon = "22.0.1"
+arcore = "1.47.0"
+sceneform = "1.23.0"
+firebaseBom = "34.13.0"
+playServicesLocation = "21.3.0"
+glide = "4.16.0"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -24,6 +29,12 @@ recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
 play-services-tasks = { group = "com.google.android.gms", name = "play-services-tasks", version.ref = "playServicesTasks" }
 firebase-common = { group = "com.google.firebase", name = "firebase-common", version.ref = "firebaseCommon" }
+arcore = { group = "com.google.ar", name = "core", version.ref = "arcore" }
+sceneform = { group = "com.gorisse.thomas.sceneform", name = "sceneform", version.ref = "sceneform" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+glide = { group = "com.github.bumptech.glide", name = "glide", version.ref = "glide" }
+glide-compiler = { group = "com.github.bumptech.glide", name = "compiler", version.ref = "glide" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

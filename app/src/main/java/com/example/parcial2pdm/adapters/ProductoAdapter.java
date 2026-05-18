@@ -20,16 +20,24 @@ import java.util.Locale;
 public class ProductoAdapter extends RecyclerView.Adapter<ProductoAdapter.ProductoViewHolder> {
     private List<Productos> listaProducto;
     private Listener listener;
+    private boolean esModoHorizontal = false;
 
     public ProductoAdapter(List<Productos> listaProducto, Listener listener) {
         this.listaProducto = listaProducto;
         this.listener = listener;
     }
 
+    public ProductoAdapter(List<Productos> listaProducto, boolean esModoHorizontal, Listener listener) {
+        this.listaProducto = listaProducto;
+        this.esModoHorizontal = esModoHorizontal;
+        this.listener = listener;
+    }
+
     @NonNull
     @Override
     public ProductoAdapter.ProductoViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.productos_items, parent, false);
+        int layoutId = esModoHorizontal ? R.layout.item_producto_ar_horizontal : R.layout.productos_items;
+        View view = LayoutInflater.from(parent.getContext()).inflate(layoutId, parent, false);
         return new ProductoViewHolder(view);
     }
 
@@ -44,9 +52,9 @@ public class ProductoAdapter extends RecyclerView.Adapter<ProductoAdapter.Produc
                 .into(holder.imgProducto);
 
         holder.txtNombre.setText(productos.getNombreProducto());
-        holder.txtCategoria.setText(productos.getCategoriaProducto());
+        if (holder.txtCategoria != null) holder.txtCategoria.setText(productos.getCategoriaProducto());
         holder.txtPrecio.setText(String.format(Locale.US, "$%.2f", productos.getPrecioProducto()));
-        holder.txtStock.setText("Stock: " + productos.getStockProducto());
+        if (holder.txtStock != null) holder.txtStock.setText("Stock: " + productos.getStockProducto());
 
         holder.itemView.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -55,19 +63,23 @@ public class ProductoAdapter extends RecyclerView.Adapter<ProductoAdapter.Produc
             }
         });
 
-        holder.btnEditar.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                listener.onEdit(productos);
-            }
-        });
+        if (holder.btnEditar != null) {
+            holder.btnEditar.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    listener.onEdit(productos);
+                }
+            });
+        }
 
-        holder.btnEliminar.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                listener.onDelete(productos);
-            }
-        });
+        if (holder.btnEliminar != null) {
+            holder.btnEliminar.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    listener.onDelete(productos);
+                }
+            });
+        }
     }
 
     @Override

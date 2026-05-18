@@ -61,6 +61,7 @@ public class SucursalAdapter extends RecyclerView.Adapter<SucursalAdapter.Sucurs
 
         holder.btnEditar.setOnClickListener(v -> listener.onEdit(sucursal));
         holder.btnEliminar.setOnClickListener(v -> listener.onDelete(sucursal));
+        holder.itemView.setOnClickListener(v -> listener.onClick(sucursal));
     }
 
     @Override
@@ -87,5 +88,6 @@ public class SucursalAdapter extends RecyclerView.Adapter<SucursalAdapter.Sucurs
     public interface Listener {
         void onEdit(Sucursal sucursal);
         void onDelete(Sucursal sucursal);
+        void onClick(Sucursal sucursal);
     }
 }

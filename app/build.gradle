@@ -3,18 +3,19 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+// FORZADO GLOBAL: Asegura que ARCore no pase de 1.47.0 para evitar NoSuchMethodError
+configurations.all {
+    resolutionStrategy.force 'com.google.ar:core:1.47.0'
+}
+
 android {
     namespace 'com.example.parcial2pdm'
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.example.parcial2pdm"
         minSdk 24
-        targetSdk 36
+        targetSdk 35
         versionCode 1
         versionName "1.0"
 
@@ -31,6 +32,13 @@ android {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
+
+    packaging {
+        jniLibs {
+            // Requerido para compatibilidad con 16 KB en Android 15+
+            useLegacyPackaging = false
+        }
+    }
 }
 
 dependencies {
@@ -39,34 +47,28 @@ dependencies {
     implementation libs.activity
     implementation libs.constraintlayout
     implementation libs.recyclerview
+    
+    // Firebase con BOM
+    implementation platform(libs.firebase.bom)
+    implementation 'com.google.firebase:firebase-database'
     implementation libs.firebase.auth
-    implementation libs.play.services.tasks
+    implementation 'com.google.firebase:firebase-storage'
     implementation libs.firebase.common
+    
+    implementation libs.play.services.tasks
+    implementation libs.play.services.location
+
+    // ARCore y Sceneform (Excluimos core interno de sceneform para evitar conflictos)
+    implementation libs.arcore
+    implementation(libs.sceneform) {
+        exclude group: 'com.google.ar', module: 'core'
+    }
+
+    // Glide
+    implementation libs.glide
+    annotationProcessor libs.glide.compiler
+
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
-
-    implementation platform('com.google.firebase:firebase-bom:34.13.0')
-    implementation 'com.google.android.material:material:1.11.0'
-    implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-auth'
-
-    // Firebase Storage:para el registro de imagenes de referencia y modelos 3D
-    implementation 'com.google.firebase:firebase-storage'
-
-    // Google Play Services Location: para obtener las coordenadas geograficas mediante GPS
-    implementation 'com.google.android.gms:play-services-location:21.2.0'
-
-    // ARCore: para la integracion con ARCore y renderizado 3D
-    // Utilizaremos la librería oficial de Sceneform mantenida por la comunidad para Java
-    implementation 'com.gorisse.thomas.sceneform:sceneform:1.23.0'
-    testImplementation libs.junit
-    androidTestImplementation libs.ext.junit
-    androidTestImplementation libs.espresso.core
-    implementation platform('com.google.firebase:firebase-bom:33.1.0')
-    implementation 'com.google.firebase:firebase-database'
-    implementation 'com.google.firebase:firebase-auth'
-    implementation 'com.google.firebase:firebase-storage'
-    implementation 'com.github.bumptech.glide:glide:4.16.0'
-    annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
 }
