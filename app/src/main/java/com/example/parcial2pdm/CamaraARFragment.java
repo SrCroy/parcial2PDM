@@ -162,24 +162,36 @@ public class CamaraARFragment extends Fragment {
         this.idSucursalActual = "";
         this.nombreSucursalActual = "";
         this.inventarioCargado = false;
-        
+
+        // 1. libera y "destruye explicitamente el fragmento de ARCore para apagar la camara
         if (arFragment != null) {
-            arInventarioManager.limpiarEscena(arFragment);
-            getChildFragmentManager().beginTransaction().remove(arFragment).commit();
+            try {
+                arInventarioManager.limpiarEscena(arFragment);
+                getChildFragmentManager().beginTransaction().remove(arFragment).commitAllowingStateLoss();
+            } catch (Exception e) {
+                android.util.Log.e("AR_FREE", "Error liberando ARCore: " + e.getMessage());
+            }
             arFragment = null;
             arConfigurado = false;
         }
 
-        View root = getView();
-        if (root != null) {
-            root.findViewById(R.id.ar_container).setVisibility(View.GONE);
-            rvSucursalesCercanas.setVisibility(View.VISIBLE);
-            btnEscanear.setVisibility(View.GONE);
-            btnRegresar.setVisibility(View.GONE);
-            panelInferiorAr.setVisibility(View.GONE);
+        // 2. transicion corregida: reemplazamos el contenido en el contenedor del Dashboard
+        if (getParentFragmentManager() != null) {
+            // limpiamos la pantalla completa por si acaso antes de la tran
+            restaurarBarrasDelSistema();
+
+            // forzar el reemplazo directo en el framelayout 'container' hacia el MapaFragment
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.container, new MapaFragment())
+                    .commit();
         }
     }
-
+    private void restaurarBarrasDelSistema() {
+        if (getActivity() != null && getActivity().getWindow() != null) {
+            View decorView = getActivity().getWindow().getDecorView();
+            decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+        }
+    }
     private void seleccionarSucursal(Sucursal s) {
         if (getView() == null) return;
         this.idSucursalActual = s.getId();
