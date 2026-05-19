@@ -114,24 +114,23 @@ public class ArInventarioManager {
         nodoModelo.setParent(anchorNode);
         nodoModelo.setName(producto.getNombreProducto()); // Asignamos nombre para el Toast de depuración
         
-        // CONFIGURACIÓN DE TAMAÑO
-        nodoModelo.setLocalScale(new Vector3(4.0f, 4.0f, 4.0f)); 
-        nodoModelo.getScaleController().setMinScale(0.01f);
-        nodoModelo.getScaleController().setMaxScale(25.0f);
+        // CONFIGURACIÓN DE TAMAÑO MODERADO
+        // Escala de 0.3f (aprox 30cm) para que se vea bien sin ser gigante
+        nodoModelo.setLocalScale(new Vector3(0.3f, 0.3f, 0.3f)); 
+        nodoModelo.getScaleController().setMinScale(0.1f);
+        nodoModelo.getScaleController().setMaxScale(1.0f);
 
-        // Colisión balanceada: 0.25m local * escala 4 = 1 metro de área táctil real
-        nodoModelo.setCollisionShape(new Sphere(0.25f));
+        // Colisión ajustada
+        nodoModelo.setCollisionShape(new Sphere(0.4f));
 
         cargarModelo3DEnNodo(arFragment.getContext(), nodoModelo, producto.getUrlModelo3D());
 
-        // Nodo para la tarjeta informativa (Hijo del modelo para que lo siga)
+        // Nodo para la tarjeta informativa
         Node etiquetaNode = new Node();
         etiquetaNode.setParent(nodoModelo);
         
-        // Escala compensada (0.25 * 4 = 1.0 escala real)
-        etiquetaNode.setLocalScale(new Vector3(0.25f, 0.25f, 0.25f));
-        // Posición: 0.4m local * escala 4 = 1.6 metros de altura real (altura de ojos)
-        etiquetaNode.setLocalPosition(new Vector3(0.0f, 0.4f, 0.0f)); 
+        // Elevamos la tarjeta para que flote sobre el objeto (aprox 40cm arriba en escala real)
+        etiquetaNode.setLocalPosition(new Vector3(0.0f, 1.5f, 0.0f)); 
         etiquetaNode.setEnabled(false);
 
         // Billboard: La tarjeta siempre mira al usuario
@@ -169,6 +168,28 @@ public class ArInventarioManager {
         }
     }
 
+    /**
+     * Limpia todos los anclajes y modelos de la escena actual.
+     */
+    public void limpiarEscena(ArFragment arFragment) {
+        if (arFragment == null || arFragment.getArSceneView() == null) {
+            backgroundTapListenerSet = false;
+            return;
+        }
+        
+        // Obtenemos una copia de la lista para evitar errores de modificación concurrente
+        java.util.List<com.google.ar.sceneform.Node> hijos = 
+            new java.util.ArrayList<>(arFragment.getArSceneView().getScene().getChildren());
+            
+        for (com.google.ar.sceneform.Node nodo : hijos) {
+            if (nodo instanceof AnchorNode) {
+                nodo.setParent(null);
+            }
+        }
+        nodoEtiquetaActivo = null;
+        backgroundTapListenerSet = false;
+    }
+
     private void cargarModelo3DEnNodo(Context context, TransformableNode nodo, String urlModelo3D) {
         if (urlModelo3D == null || urlModelo3D.isEmpty()) return;
 
@@ -178,8 +199,8 @@ public class ArInventarioManager {
                 .build()
                 .thenAccept(renderable -> {
                     nodo.setRenderable(renderable);
-                    // Colisión de 1 metro real de diámetro
-                    nodo.setCollisionShape(new Sphere(0.25f));
+                    // Sombra desactivada para mejorar rendimiento si hay muchos objetos
+                    renderable.setShadowCaster(true);
                     nodo.select();
                 })
                 .exceptionally(throwable -> {
@@ -197,8 +218,9 @@ public class ArInventarioManager {
                     viewRenderable.setShadowCaster(false);
                     viewRenderable.setShadowReceiver(false);
                     
-                    // Aseguramos un tamaño físico real para que sea legible en el mundo AR (250 DP = 1 metro aprox)
-                    viewRenderable.setSizer(new DpToMetersViewSizer(250));
+                    // Tamaño equilibrado: 800 DP = 1 metro. 
+                    // Esto hace que una tarjeta de 300dp mida unos 37cm reales.
+                    viewRenderable.setSizer(new DpToMetersViewSizer(800));
                     
                     etiquetaNode.setRenderable(viewRenderable);
                     

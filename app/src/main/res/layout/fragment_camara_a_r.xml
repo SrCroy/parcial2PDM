@@ -1,32 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context=".CamaraARFragment">
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/ux_fragment_embed"
-        android:name="com.google.ar.sceneform.ux.ArFragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+    <!-- Contenedor para ARCore (Ocupa toda la pantalla) -->
+    <FrameLayout
+        android:id="@+id/ar_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Lista de Sucursales (Ocupa toda la pantalla inicialmente) -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvSucursalesCercanas"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@color/background"
+        android:padding="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Botón Regresar (Arriba a la izquierda) - Estilo con fondo para visibilidad en AR -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnRegresar"
+        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Regresar"
+        android:textColor="@color/white"
+        android:visibility="gone"
+        app:backgroundTint="#80000000"
+        app:icon="@android:drawable/ic_menu_revert"
+        app:iconTint="@color/white"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Botón Escanear (Arriba a la derecha) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnEscanear"
+        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:text="Escanear"
+        android:visibility="gone"
+        app:backgroundTint="#80000000"
+        app:icon="@android:drawable/ic_menu_camera"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Panel Inferior de Productos (Overlay sobre AR) -->
     <LinearLayout
+        android:id="@+id/panelInferiorAr"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
         android:background="#B3000000"
         android:orientation="vertical"
-        android:padding="8dp">
+        android:padding="12dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent">
 
         <TextView
             android:id="@+id/txtInstruccionesAr"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
             android:layout_marginBottom="8dp"
-            android:text="Buscando superficies..."
-            android:textColor="@android:color/white"
+            android:text="Busca superficies para posicionar"
+            android:textColor="@color/white"
             android:textSize="14sp"
             android:textStyle="bold" />
 
@@ -34,25 +85,16 @@
             android:id="@+id/txtTituloCatalogo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="4dp"
-            android:text="Catálogo (Productos sin posicionar):"
-            android:textColor="@android:color/white"
-            android:textSize="12sp" />
+            android:text="Catálogo de productos:"
+            android:textColor="#CCCCCC"
+            android:textSize="11sp" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvProductosParaPosicionar"
             android:layout_width="match_parent"
-            android:layout_height="130dp"
+            android:layout_height="110dp"
+            android:layout_marginTop="4dp"
             android:orientation="horizontal" />
     </LinearLayout>
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnEscanear"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_margin="16dp"
-        android:text="Escanear"
-        app:icon="@android:drawable/ic_menu_camera" />
-
-</FrameLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

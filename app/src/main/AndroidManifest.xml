@@ -26,7 +26,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Parcial2PDM">
 
-        <!--        metadata arcore-->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyD7_z1Byfn5Yoj280LSGJZl8QTeRnPCvbw" />
+
         <meta-data
             android:name="com.google.ar.core"
             android:value="required" />

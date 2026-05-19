@@ -13,8 +13,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -22,62 +20,50 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
-import com.example.parcial2pdm.adapters.SucursalAdapter;
 import com.example.parcial2pdm.models.Sucursal;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
-public class MapaFragment extends Fragment {
+public class MapaFragment extends Fragment implements OnMapReadyCallback {
 
-    private TextView txtLatitud, txtLongitud;
-    private RecyclerView rvSucursales;
-    private MaterialButton btnActualizarUbicacion;
-    private FloatingActionButton btnAgregarSucursal;
-
-    private FusedLocationProviderClient fusedLocationClient;
+    private GoogleMap mMap;
     private DatabaseReference mDatabase;
+    private FusedLocationProviderClient fusedLocationClient;
+    private Map<String, Marker> markersMap = new HashMap<>();
 
-    private List<Sucursal> listaSucursales;
-    private SucursalAdapter adapter;
-    private Location ultimaUbicacionConocida;
-
-    // Lanzador para solicitar permisos en tiempo de ejecución de forma segura
     private final ActivityResultLauncher<String[]> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
                 if (fineLocationGranted != null && fineLocationGranted) {
-                    obtenerUbicacionActual();
-                } else {
-                    Toast.makeText(getContext(), "Se requieren permisos de ubicación para calcular cercanías", Toast.LENGTH_LONG).show();
+                    if (mMap != null) habilitarMiUbicacion();
                 }
             });
 
     public MapaFragment() {
-        // Constructor vacío obligatorio
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
-        // CORRECCIÓN DE ARQUITECTURA: Forzamos la referencia directa limpiando el búfer de conexiones anteriores
         FirebaseDatabase database = FirebaseDatabase.getInstance("https://parcial2pdm-80efa-default-rtdb.firebaseio.com/");
         mDatabase = database.getReference("sucursales");
     }
@@ -86,87 +72,40 @@ public class MapaFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_mapa, container, false);
 
-        // Enlace de componentes del XML (fragment_mapa.xml)
-        txtLatitud = view.findViewById(R.id.txtLatitud);
-        txtLongitud = view.findViewById(R.id.txtLongitud);
-        rvSucursales = view.findViewById(R.id.rvSucursales);
-        btnActualizarUbicacion = view.findViewById(R.id.btnActualizarUbicacion);
-        btnAgregarSucursal = view.findViewById(R.id.btnAgregarSucursal);
+        SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager()
+                .findFragmentById(R.id.map);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
 
-        // Configuración inicial del listado dinámico
-        listaSucursales = new ArrayList<>();
-        rvSucursales.setLayoutManager(new LinearLayoutManager(getContext()));
-
-        adapter = new SucursalAdapter(listaSucursales, new SucursalAdapter.Listener() {
-            @Override
-            public void onEdit(Sucursal sucursal) {
-                abrirFormulario(sucursal);
-            }
-
-            @Override
-            public void onDelete(Sucursal sucursal) {
-                eliminarSucursal(sucursal);
-            }
-
-            @Override
-            public void onClick(Sucursal sucursal) {
-                // Al hacer clic en la sucursal, navegamos al fragmento de AR pasando el ID
-                if (getActivity() instanceof Dashboard) {
-                    CamaraARFragment fragment = CamaraARFragment.newInstance(sucursal.getId());
-                    ((Dashboard) getActivity()).getSupportFragmentManager().beginTransaction()
-                            .replace(R.id.container, fragment)
-                            .addToBackStack(null)
-                            .commit();
-                    Toast.makeText(getContext(), "Abriendo AR para: " + sucursal.getNombre(), Toast.LENGTH_SHORT).show();
-                }
-            }
+        view.findViewById(R.id.btnAgregarSucursal).setOnClickListener(v -> {
+            Toast.makeText(getContext(), "Mantén presionado en el mapa para agregar una sucursal", Toast.LENGTH_LONG).show();
         });
-        rvSucursales.setAdapter(adapter);
-
-        // Activación del puente de escucha en tiempo real con Firebase
-        escucharBaseDeDatos();
-
-        // Asignación de oyentes de clics
-        btnActualizarUbicacion.setOnClickListener(v -> verificarPermisosYObtenerUbicacion());
-        btnAgregarSucursal.setOnClickListener(v -> abrirFormulario(null));
-
-        // Intento de disparo inicial del GPS para poblar la ubicación actual
-        verificarPermisosYObtenerUbicacion();
 
         return view;
     }
 
-    private void escucharBaseDeDatos() {
-        mDatabase.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                listaSucursales.clear();
-                for (DataSnapshot data : snapshot.getChildren()) {
-                    Sucursal s = data.getValue(Sucursal.class);
-                    if (s != null) {
-                        listaSucursales.add(s);
-                    }
-                }
-                if (ultimaUbicacionConocida != null) {
-                    procesarCercaniaYOrdenar(ultimaUbicacionConocida);
-                } else {
-                    adapter.notifyDataSetChanged();
-                }
-            }
+    @Override
+    public void onMapReady(@NonNull GoogleMap googleMap) {
+        mMap = googleMap;
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                // AGREGA ESTA LÍNEA DE LOG:
-                android.util.Log.e("FIREBASE_ERROR", "Detalle del rechazo: " + error.getMessage() + " -> " + error.getDetails());
+        verificarPermisosYConfigurarMapa();
+        escucharSucursales();
 
-                Toast.makeText(getContext(), "Error de Firebase: " + error.getMessage(), Toast.LENGTH_SHORT).show();
+        mMap.setOnMapLongClickListener(latLng -> abrirFormulario(null, latLng));
+
+        mMap.setOnMarkerClickListener(marker -> {
+            Sucursal sucursal = (Sucursal) marker.getTag();
+            if (sucursal != null) {
+                mostrarOpcionesSucursal(sucursal);
             }
+            return false;
         });
     }
 
-    private void verificarPermisosYObtenerUbicacion() {
+    private void verificarPermisosYConfigurarMapa() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            obtenerUbicacionActual();
+            habilitarMiUbicacion();
         } else {
             requestPermissionLauncher.launch(new String[]{
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -176,111 +115,114 @@ public class MapaFragment extends Fragment {
     }
 
     @SuppressLint("MissingPermission")
-    private void obtenerUbicacionActual() {
-        // Forzado de precisión alta omitiendo la memoria caché antigua del emulador
-        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                .addOnSuccessListener(requireActivity(), new OnSuccessListener<Location>() {
-                    @Override
-                    public void onSuccess(Location location) {
+    private void habilitarMiUbicacion() {
+        if (mMap != null) {
+            mMap.setMyLocationEnabled(true);
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .addOnSuccessListener(location -> {
                         if (location != null) {
-                            ultimaUbicacionConocida = location;
-                            txtLatitud.setText("Latitud: " + location.getLatitude());
-                            txtLongitud.setText("Longitud: " + location.getLongitude());
-                            procesarCercaniaYOrdenar(location);
-                        } else {
-                            Toast.makeText(getContext(), "GPS inestable. Por favor, intente de nuevo.", Toast.LENGTH_SHORT).show();
+                            LatLng miPos = new LatLng(location.getLatitude(), location.getLongitude());
+                            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(miPos, 15));
+                        }
+                    });
+        }
+    }
+
+    private void escucharSucursales() {
+        mDatabase.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                for (Marker marker : markersMap.values()) {
+                    marker.remove();
+                }
+                markersMap.clear();
+
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    Sucursal s = data.getValue(Sucursal.class);
+                    if (s != null) {
+                        LatLng pos = new LatLng(s.getLatitud(), s.getLongitud());
+                        Marker marker = mMap.addMarker(new MarkerOptions()
+                                .position(pos)
+                                .title(s.getNombre()));
+                        if (marker != null) {
+                            marker.setTag(s);
+                            markersMap.put(s.getId(), marker);
                         }
                     }
-                });
-    }
+                }
+            }
 
-    private void procesarCercaniaYOrdenar(Location ubicacionUsuario) {
-        // Cálculo matemático lineal de distancias usando el hardware del dispositivo
-        for (Sucursal sucursal : listaSucursales) {
-            Location locSucursal = new Location("");
-            locSucursal.setLatitude(sucursal.getLatitud());
-            locSucursal.setLongitude(sucursal.getLongitud());
-            sucursal.setDistanciaMetros(ubicacionUsuario.distanceTo(locSucursal));
-        }
-
-        // Ordenamiento por proximidad espacial en la UI (Posición 0 es la más cercana)
-        Collections.sort(listaSucursales, new Comparator<Sucursal>() {
             @Override
-            public int compare(Sucursal s1, Sucursal s2) {
-                return Float.compare(s1.getDistanciaMetros(), s2.getDistanciaMetros());
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(getContext(), "Error: " + error.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
-
-        adapter.notifyDataSetChanged();
     }
 
-    private void abrirFormulario(@Nullable Sucursal sucursalEditar) {
+    private void mostrarOpcionesSucursal(Sucursal sucursal) {
+        String[] opciones = {"Editar", "Eliminar", "Ver en AR"};
+        new AlertDialog.Builder(requireContext())
+                .setTitle(sucursal.getNombre())
+                .setItems(opciones, (dialog, which) -> {
+                    switch (which) {
+                        case 0: abrirFormulario(sucursal, new LatLng(sucursal.getLatitud(), sucursal.getLongitud())); break;
+                        case 1: eliminarSucursal(sucursal); break;
+                        case 2: abrirAR(sucursal); break;
+                    }
+                })
+                .show();
+    }
+
+    private void abrirAR(Sucursal sucursal) {
+        if (getActivity() instanceof Dashboard) {
+            CamaraARFragment fragment = CamaraARFragment.newInstance(sucursal.getId());
+            ((Dashboard) getActivity()).getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.container, fragment)
+                    .addToBackStack(null)
+                    .commit();
+        }
+    }
+
+    private void abrirFormulario(@Nullable Sucursal sucursalEditar, LatLng latLng) {
         AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
         builder.setTitle(sucursalEditar == null ? "Nueva Sucursal" : "Editar Sucursal");
 
-        // Construcción estructurada del contenedor del formulario flotante
         LinearLayout layout = new LinearLayout(getContext());
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(60, 30, 60, 30);
 
         final EditText etNombre = new EditText(getContext());
         etNombre.setHint("Nombre de la Sucursal");
+        if (sucursalEditar != null) etNombre.setText(sucursalEditar.getNombre());
         layout.addView(etNombre);
 
-        final EditText etLat = new EditText(getContext());
-        etLat.setHint("Latitud (Ej: 13.6929)");
-        etLat.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-        layout.addView(etLat);
-
-        final EditText etLon = new EditText(getContext());
-        etLon.setHint("Longitud (Ej: -89.2182)");
-        etLon.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-        layout.addView(etLon);
-
-        // Inyección de datos previos si el flujo detecta una edición
-        if (sucursalEditar != null) {
-            etNombre.setText(sucursalEditar.getNombre());
-            etLat.setText(String.valueOf(sucursalEditar.getLatitud()));
-            etLon.setText(String.valueOf(sucursalEditar.getLongitud()));
-        }
-
         builder.setView(layout);
-
         builder.setPositiveButton("Guardar", (dialog, which) -> {
             String nombre = etNombre.getText().toString().trim();
-            String latStr = etLat.getText().toString().trim();
-            String lonStr = etLon.getText().toString().trim();
-
-            if (TextUtils.isEmpty(nombre) || TextUtils.isEmpty(latStr) || TextUtils.isEmpty(lonStr)) {
-                Toast.makeText(getContext(), "Campos obligatorios vacíos", Toast.LENGTH_SHORT).show();
+            if (TextUtils.isEmpty(nombre)) {
+                Toast.makeText(getContext(), "Nombre obligatorio", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            double lat = Double.parseDouble(latStr);
-            double lon = Double.parseDouble(lonStr);
-
-            // Generación de llave única persistente si es un registro nuevo
             String id = sucursalEditar != null ? sucursalEditar.getId() : mDatabase.push().getKey();
             if (id != null) {
-                Sucursal nuevaSucursal = new Sucursal(id, nombre, lat, lon);
-                mDatabase.child(id).setValue(nuevaSucursal)
-                        .addOnSuccessListener(aVoid -> Toast.makeText(getContext(), "Guardado correctamente", Toast.LENGTH_SHORT).show());
+                Sucursal nueva = new Sucursal(id, nombre, latLng.latitude, latLng.longitude);
+                mDatabase.child(id).setValue(nueva)
+                        .addOnSuccessListener(aVoid -> Toast.makeText(getContext(), "Guardado", Toast.LENGTH_SHORT).show());
             }
         });
-
         builder.setNegativeButton("Cancelar", null);
         builder.show();
     }
 
     private void eliminarSucursal(Sucursal sucursal) {
         new AlertDialog.Builder(requireContext())
-                .setTitle("Eliminar Sucursal")
-                .setMessage("¿Confirmas la eliminación permanente de " + sucursal.getNombre() + "?")
-                .setPositiveButton("Eliminar", (dialog, which) -> {
-                    mDatabase.child(sucursal.getId()).removeValue()
-                            .addOnSuccessListener(aVoid -> Toast.makeText(getContext(), "Eliminada con éxito", Toast.LENGTH_SHORT).show());
+                .setTitle("Eliminar")
+                .setMessage("¿Eliminar " + sucursal.getNombre() + "?")
+                .setPositiveButton("Sí", (dialog, which) -> {
+                    mDatabase.child(sucursal.getId()).removeValue();
                 })
-                .setNegativeButton("Cancelar", null)
+                .setNegativeButton("No", null)
                 .show();
     }
 }
