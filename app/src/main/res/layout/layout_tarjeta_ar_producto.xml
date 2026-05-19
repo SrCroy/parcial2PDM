@@ -7,44 +7,116 @@
     app:cardCornerRadius="12dp"
     app:cardElevation="6dp"
     app:cardBackgroundColor="@android:color/white"
-    app:strokeColor="#E0E0E0"
+    app:strokeColor="#EEEEEE"
     app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="10dp">
 
-        <TextView
-            android:id="@+id/txtArNombreProducto"
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Nombre Producto"
-            android:textColor="#212121"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:ellipsize="end"
-            android:maxLines="1"/>
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/txtArNombreProducto"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_toStartOf="@id/btnCerrarTarjeta"
+                android:layout_centerVertical="true"
+                android:text="Nombre Producto"
+                android:textColor="#212121"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:ellipsize="end"
+                android:maxLines="1"/>
+
+            <!-- Botón X más grande para que sea fácil de tocar -->
+            <ImageButton
+                android:id="@+id/btnCerrarTarjeta"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_alignParentEnd="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="Cerrar"
+                android:scaleType="centerInside"
+                app:tint="#D32F2F" />
+        </RelativeLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#F5F5F5"
+            android:layout_marginBottom="4dp"/>
 
         <TextView
             android:id="@+id/txtArPrecioProducto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="$0.00"
-            android:textColor="#388E3C"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:layout_marginTop="4dp"/>
+            android:textColor="#2E7D32"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/txtArStockProducto"
+            android:id="@+id/txtArDescripcionProducto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Stock: 0"
-            android:textColor="#757575"
+            android:text="Descripción..."
+            android:textColor="#616161"
+            android:textSize="10sp"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:id="@+id/txtArStockProducto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Stock: 0"
+                android:textColor="#757575"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/txtArUbicacionProducto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Ubicación: --"
+                android:textColor="#757575"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/txtArCategoriaProducto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnQuitarProducto"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_marginTop="6dp"
+            android:text="QUITAR"
+            android:textColor="#C62828"
             android:textSize="11sp"
-            android:layout_marginTop="2dp"/>
+            android:padding="0dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:icon="@android:drawable/ic_menu_delete"
+            app:iconSize="12dp"
+            app:iconPadding="4dp"
+            app:iconTint="#C62828" />
 
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

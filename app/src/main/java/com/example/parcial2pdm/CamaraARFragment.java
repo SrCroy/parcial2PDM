@@ -40,6 +40,8 @@ public class CamaraARFragment extends Fragment {
     private RecyclerView rvProductosParaPosicionar;
     private ProductoAdapter productoAdapter;
     private List<Productos> listaCatalogo;
+    private android.widget.TextView txtInstruccionesAr;
+    private com.google.android.material.button.MaterialButton btnEscanear;
 
     private String idSucursalActual = ""; 
     private Productos productoSeleccionadoParaMapear; 
@@ -76,6 +78,9 @@ public class CamaraARFragment extends Fragment {
         View root = inflater.inflate(R.layout.fragment_camara_a_r, container, false);
         
         rvProductosParaPosicionar = root.findViewById(R.id.rvProductosParaPosicionar);
+        txtInstruccionesAr = root.findViewById(R.id.txtInstruccionesAr);
+        btnEscanear = root.findViewById(R.id.btnEscanear);
+
         rvProductosParaPosicionar.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.HORIZONTAL, false));
         
         productoAdapter = new ProductoAdapter(listaCatalogo, true, new ProductoAdapter.Listener() {
@@ -87,6 +92,10 @@ public class CamaraARFragment extends Fragment {
             @Override public void onDelete(Productos p) {}
         });
         rvProductosParaPosicionar.setAdapter(productoAdapter);
+
+        btnEscanear.setOnClickListener(v -> {
+            Toast.makeText(getContext(), "Apunta la cámara a la imagen de referencia del producto", Toast.LENGTH_LONG).show();
+        });
 
         return root;
     }
@@ -111,6 +120,9 @@ public class CamaraARFragment extends Fragment {
             config.setPlaneFindingMode(Config.PlaneFindingMode.HORIZONTAL_AND_VERTICAL);
             config.setFocusMode(Config.FocusMode.AUTO);
             
+            // Habilitar base de datos de imágenes para el Escáner (Requerimiento)
+            configurarAugmentedImages(session, config);
+
             // DESACTIVADO: La estimación de luz causa NoSuchMethodError en Sceneform 1.23.0 + ARCore 1.45+
             config.setLightEstimationMode(Config.LightEstimationMode.DISABLED);
 
@@ -122,41 +134,104 @@ public class CamaraARFragment extends Fragment {
             config.setUpdateMode(Config.UpdateMode.LATEST_CAMERA_IMAGE);
         });
 
-        // Click en planos detectados
+        // Click en planos detectados (Suelo o Paredes)
         arFragment.setOnTapArPlaneListener((hitResult, plane, motionEvent) -> {
             if (productoSeleccionadoParaMapear != null) {
                 productoSeleccionadoParaMapear.setIdSucursalAsignada(idSucursalActual);
                 arInventarioManager.registrarPosicionEspacialProducto(
                         getContext(), arFragment, hitResult, productoSeleccionadoParaMapear);
+                
+                // Limpiar selección después de posicionar
+                productoSeleccionadoParaMapear = null; 
             } else {
-                Toast.makeText(getContext(), "Selecciona un producto primero.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Selecciona un producto del catálogo abajo.", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
+    private void configurarAugmentedImages(Session session, Config config) {
+        // En una implementación real, aquí descargarías las imágenes de Firebase
+        // y las añadirías a aid.addImage(nombre, bitmap).
+        com.google.ar.core.AugmentedImageDatabase aid = new com.google.ar.core.AugmentedImageDatabase(session);
+        config.setAugmentedImageDatabase(aid);
+    }
+
     private void checkArSceneViewReady() {
         if (arFragment != null && arFragment.getArSceneView() != null && arFragment.getArSceneView().getScene() != null) {
-            // Ya está listo, agregar el listener de actualización
             arFragment.getArSceneView().getScene().addOnUpdateListener(frameTime -> {
-                Session session = arFragment.getArSceneView().getSession();
-                if (session != null && !inventarioCargado) {
-                    if (arFragment.getArSceneView().getArFrame() != null &&
-                            arFragment.getArSceneView().getArFrame().getCamera().getTrackingState() == TrackingState.TRACKING) {
-                        inventarioCargado = true;
-                        cargarProductosExistentes();
-                        
-                        // Mostrar visualmente que se están buscando planos
-                        arFragment.getArSceneView().getPlaneRenderer().setEnabled(true);
-                        arFragment.getArSceneView().getPlaneRenderer().setVisible(true);
-                    }
+                com.google.ar.core.Frame frame = arFragment.getArSceneView().getArFrame();
+                if (frame == null) return;
+
+                // Actualizar Instrucciones UX (Requerimiento)
+                actualizarInstruccionesUX(frame);
+
+                // Procesar Imágenes Escaneadas (Requerimiento Escáner)
+                procesarAugmentedImages(frame);
+
+                if (!inventarioCargado && frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
+                    inventarioCargado = true;
+                    cargarProductosExistentes();
+                    arFragment.getArSceneView().getPlaneRenderer().setEnabled(true);
                 }
             });
         } else {
-            // Si no está listo, reintentar en 200ms
             if (isAdded()) {
                 mainHandler.postDelayed(this::checkArSceneViewReady, 200);
             }
         }
+    }
+
+    private void actualizarInstruccionesUX(com.google.ar.core.Frame frame) {
+        if (frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
+            if (productoSeleccionadoParaMapear != null) {
+                txtInstruccionesAr.setText("Toca un plano para posicionar " + productoSeleccionadoParaMapear.getNombreProducto());
+            } else {
+                txtInstruccionesAr.setText("Superficie detectada. Selecciona un producto del catálogo.");
+            }
+        } else {
+            txtInstruccionesAr.setText("Mueve el dispositivo para reconocer el entorno...");
+        }
+    }
+
+    private void procesarAugmentedImages(com.google.ar.core.Frame frame) {
+        java.util.Collection<com.google.ar.core.AugmentedImage> images = frame.getUpdatedTrackables(com.google.ar.core.AugmentedImage.class);
+        for (com.google.ar.core.AugmentedImage image : images) {
+            if (image.getTrackingState() == TrackingState.TRACKING) {
+                // Lógica de escáner: Buscar si el nombre de la imagen coincide con un producto
+                verificarProductoEscaneado(image.getName());
+            }
+        }
+    }
+
+    private void verificarProductoEscaneado(String nombreImagen) {
+        // Buscamos en toda la base de datos si el producto existe y si está en esta sucursal
+        productosRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                boolean encontradoEnSucursal = false;
+                Productos productoEncontrado = null;
+
+                for (DataSnapshot data : snapshot.getChildren()) {
+                    Productos p = data.getValue(Productos.class);
+                    if (p != null && p.getNombreProducto().equalsIgnoreCase(nombreImagen)) {
+                        productoEncontrado = p;
+                        if (p.getIdSucursalAsignada().equals(idSucursalActual)) {
+                            encontradoEnSucursal = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (productoEncontrado != null) {
+                    if (encontradoEnSucursal) {
+                        Toast.makeText(getContext(), "Producto detectado: " + productoEncontrado.getNombreProducto() + " en esta sucursal.", Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(getContext(), "El producto " + productoEncontrado.getNombreProducto() + " NO está en esta sucursal.", Toast.LENGTH_LONG).show();
+                    }
+                }
+            }
+            @Override public void onCancelled(@NonNull DatabaseError error) {}
+        });
     }
 
     private void cargarCatalogoProductos() {
@@ -167,7 +242,10 @@ public class CamaraARFragment extends Fragment {
                 listaCatalogo.clear();
                 for (DataSnapshot data : snapshot.getChildren()) {
                     Productos prod = data.getValue(Productos.class);
-                    if (prod != null) listaCatalogo.add(prod);
+                    // FILTRO: Solo mostrar productos que NO tengan posición asignada (Requerimiento)
+                    if (prod != null && (prod.getPosicionX() == 0 && prod.getPosicionZ() == 0)) {
+                        listaCatalogo.add(prod);
+                    }
                 }
                 productoAdapter.notifyDataSetChanged();
             }

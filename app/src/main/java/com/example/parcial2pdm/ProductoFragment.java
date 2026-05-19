@@ -18,6 +18,9 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -31,12 +34,14 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
+import com.example.parcial2pdm.adapters.Modelo3DAdapter;
 import com.example.parcial2pdm.adapters.ProductoAdapter;
 import com.example.parcial2pdm.models.Productos;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -54,7 +59,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ProductoFragment extends Fragment {
     private ProductoAdapter productoAdapter;
@@ -209,7 +216,21 @@ public class ProductoFragment extends Fragment {
         TextInputEditText etStock = viewDialog.findViewById(R.id.etStock);
         TextInputEditText etUbicacion = viewDialog.findViewById(R.id.etUbicacion);
         TextInputEditText etUrlModelo3D = viewDialog.findViewById(R.id.etUrlModelo3D);
+        TextInputLayout tilUrlModelo3D = viewDialog.findViewById(R.id.tilUrlModelo3D);
         rutaImagenSeleccionada = "";
+
+        View.OnClickListener selectorModeloListener = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mostrarSeleccionModelos3D(etUrlModelo3D, productoAEditar);
+            }
+        };
+
+        etUrlModelo3D.setOnClickListener(selectorModeloListener);
+        if (tilUrlModelo3D != null) {
+            tilUrlModelo3D.setEndIconOnClickListener(selectorModeloListener);
+        }
+
         btnGaleria.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -265,6 +286,11 @@ public class ProductoFragment extends Fragment {
                 if (TextUtils.isEmpty(nombre) || TextUtils.isEmpty(categoria) || TextUtils.isEmpty(precioStr) || TextUtils.isEmpty(stockStr)) {
                     Toast.makeText(getContext(), "Por favor rellena los datos principales", Toast.LENGTH_SHORT).show();
                     return;
+                }
+
+                if (TextUtils.isEmpty(urlModelo3D)) {
+                    Toast.makeText(getContext(), "Advertencia: No has seleccionado un modelo 3D para AR", Toast.LENGTH_LONG).show();
+                    // Opcional: Podrías retornar aquí si quieres que sea obligatorio
                 }
 
                 double precio = Double.parseDouble(precioStr);
@@ -428,5 +454,80 @@ public class ProductoFragment extends Fragment {
                 "Enlace 3D: " + producto.getUrlModelo3D());
         info.setPositiveButton("Entendido", null);
         info.show();
+    }
+
+    /**
+     * Abre un diálogo con una galería visual (RecyclerView) de los modelos .glb 
+     * disponibles en la carpeta 'modelos3D' de Firebase Storage.
+     * Convención: Para ver una miniatura, debe existir 'nombre.png' o 'nombre.jpg' 
+     * junto al 'nombre.glb'.
+     */
+    private void mostrarSeleccionModelos3D(TextInputEditText etUrl, @Nullable Productos productoActual) {
+        if (getContext() != null) {
+            Toast.makeText(getContext(), "Consultando modelos con vista previa...", Toast.LENGTH_SHORT).show();
+        }
+
+        StorageReference folderRef = mStorage.getReference().child("modelos3D");
+
+        folderRef.listAll().addOnSuccessListener(listResult -> {
+            if (!isAdded() || getContext() == null) return;
+
+            List<StorageReference> modelosDisponibles = new ArrayList<>();
+            for (StorageReference fileRef : listResult.getItems()) {
+                String nombreArchivo = fileRef.getName();
+                
+                // Solo nos interesan los modelos .glb
+                if (!nombreArchivo.toLowerCase().endsWith(".glb")) continue;
+
+                boolean ocupado = false;
+                for (Productos p : listaProductos) {
+                    if (p.getUrlModelo3D() != null && p.getUrlModelo3D().contains(nombreArchivo)) {
+                        if (productoActual != null && p.getIdProducto().equals(productoActual.getIdProducto())) {
+                            continue;
+                        }
+                        ocupado = true;
+                        break;
+                    }
+                }
+
+                if (!ocupado) {
+                    modelosDisponibles.add(fileRef);
+                }
+            }
+
+            if (modelosDisponibles.isEmpty()) {
+                Toast.makeText(getContext(), "No hay modelos nuevos disponibles", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Inflar el nuevo diseño de lista con RecyclerView
+            View viewDialog = LayoutInflater.from(getContext()).inflate(R.layout.dialog_lista_modelos, null);
+            RecyclerView rvModelos = viewDialog.findViewById(R.id.rvModelos);
+            
+            // CONFIGURACIÓN DE GALERÍA: 3 columnas para ver más imágenes
+            rvModelos.setLayoutManager(new GridLayoutManager(getContext(), 3));
+
+            AlertDialog dialogModelos = new AlertDialog.Builder(requireContext())
+                    .setView(viewDialog)
+                    .setNegativeButton("Cancelar", null)
+                    .create();
+
+            // Pasamos la lista de modelos Y la lista completa de archivos para encontrar las imágenes
+            Modelo3DAdapter adapter = new Modelo3DAdapter(modelosDisponibles, listResult.getItems(), modelRef -> {
+                modelRef.getDownloadUrl().addOnSuccessListener(uri -> {
+                    etUrl.setText(uri.toString());
+                    dialogModelos.dismiss();
+                    Toast.makeText(getContext(), "Modelo seleccionado: " + modelRef.getName(), Toast.LENGTH_SHORT).show();
+                });
+            });
+
+            rvModelos.setAdapter(adapter);
+            dialogModelos.show();
+
+        }).addOnFailureListener(e -> {
+            if (getContext() != null) {
+                Toast.makeText(getContext(), "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 }

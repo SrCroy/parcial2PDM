@@ -10,13 +10,16 @@ import android.widget.Toast;
 import com.example.parcial2pdm.R;
 import com.example.parcial2pdm.models.Productos;
 import com.google.ar.core.Anchor;
-import com.google.ar.core.Frame;
+import com.google.ar.core.Config;
 import com.google.ar.core.HitResult;
-import com.google.ar.core.Plane;
 import com.google.ar.core.Pose;
-import com.google.ar.core.Trackable;
 import com.google.ar.sceneform.AnchorNode;
+import com.google.ar.sceneform.Node;
+import com.google.ar.sceneform.collision.Box;
+import com.google.ar.sceneform.collision.Sphere;
+import com.google.ar.sceneform.math.Quaternion;
 import com.google.ar.sceneform.math.Vector3;
+import com.google.ar.sceneform.rendering.DpToMetersViewSizer;
 import com.google.ar.sceneform.rendering.ModelRenderable;
 import com.google.ar.sceneform.rendering.ViewRenderable;
 import com.google.ar.sceneform.ux.ArFragment;
@@ -27,140 +30,223 @@ import com.google.firebase.database.FirebaseDatabase;
 public class ArInventarioManager {
 
     private final DatabaseReference mDatabase;
+    private Node nodoEtiquetaActivo = null;
+    private boolean backgroundTapListenerSet = false;
 
     public ArInventarioManager() {
-        // Unificamos con el nodo de productos que usas en el resto de la app
         this.mDatabase = FirebaseDatabase.getInstance().getReference("productos_imagenes");
     }
 
     /**
-     * Captura el hitResult del toque en la pantalla física y posiciona el modelo.
-     * Se usa el HitResult detectado por el ArFragment para mayor precisión.
+     * Registra un nuevo producto en la escena AR y en Firebase.
      */
     public void registrarPosicionEspacialProducto(Context context, ArFragment arFragment,
                                                   HitResult hit, Productos productoActual) {
         if (arFragment == null || hit == null) return;
 
-        // 1. Crear el ancla espacial fija en el entorno físico actual usando el HitResult
-        Anchor anchor = hit.createAnchor();
-        AnchorNode anchorNode = new AnchorNode(anchor);
-        anchorNode.setParent(arFragment.getArSceneView().getScene());
+        arFragment.getArSceneView().post(() -> {
+            try {
+                Anchor anchor = hit.createAnchor();
+                AnchorNode anchorNode = new AnchorNode(anchor);
+                anchorNode.setParent(arFragment.getArSceneView().getScene());
 
-        // 2. Extraer las posiciones matemáticas X, Y, Z del plano detectado
-        Pose pose = hit.getHitPose();
-        double x = pose.tx();
-        double y = pose.ty();
-        double z = pose.tz();
+                Pose pose = hit.getHitPose();
+                productoActual.setPosicionX(pose.tx());
+                productoActual.setPosicionY(pose.ty());
+                productoActual.setPosicionZ(pose.tz());
 
-        // 3. Actualizar la instancia local de tu modelo de datos
-        productoActual.setPosicionX(x);
-        productoActual.setPosicionY(y);
-        productoActual.setPosicionZ(z);
+                mDatabase.child(productoActual.getIdProducto()).setValue(productoActual);
 
-        // 4. Persistir las nuevas coordenadas tridimensionales en Firebase en tiempo real
-        mDatabase.child(productoActual.getIdProducto()).setValue(productoActual)
-                .addOnSuccessListener(aVoid -> Toast.makeText(context,
-                        "Ubicación de " + productoActual.getNombreProducto() + " guardada (X,Y,Z)",
-                        Toast.LENGTH_SHORT).show())
-                .addOnFailureListener(e -> Toast.makeText(context,
-                        "Error al guardar: " + e.getMessage(),
-                        Toast.LENGTH_SHORT).show());
-
-        // 5. Instanciar el nodo visual (modelo 3D + etiqueta) en la escena
-        crearNodoVisual(arFragment, anchorNode, productoActual);
+                crearNodoVisual(arFragment, anchorNode, productoActual);
+                setupBackgroundTapListener(arFragment);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     /**
-     * Carga un producto ya existente recreando su posición espacial
-     * a partir de las coordenadas X, Y, Z recuperadas de Firebase.
+     * Recrea un producto existente desde los datos de Firebase.
      */
     public void recrearProductoDesdeFirebase(ArFragment arFragment, Productos producto) {
         if (arFragment == null || arFragment.getArSceneView() == null || arFragment.getArSceneView().getSession() == null) return;
 
-        // Creamos una Pose matemática usando las coordenadas guardadas en el objeto Productos
-        Pose poseGuardada = new Pose(
-                new float[]{(float) producto.getPosicionX(), (float) producto.getPosicionY(), (float) producto.getPosicionZ()},
-                new float[]{0, 0, 0, 1} // Rotación neutra por defecto (Cuaternión)
-        );
+        arFragment.getArSceneView().post(() -> {
+            try {
+                Pose poseGuardada = new Pose(
+                        new float[]{(float) producto.getPosicionX(), (float) producto.getPosicionY(), (float) producto.getPosicionZ()},
+                        new float[]{0, 0, 0, 1}
+                );
 
-        // Creamos el ancla fija acoplada a la sesión espacial de ARCore a partir de esa pose
-        Anchor anchor = arFragment.getArSceneView().getSession().createAnchor(poseGuardada);
-        AnchorNode anchorNode = new AnchorNode(anchor);
-        anchorNode.setParent(arFragment.getArSceneView().getScene());
+                Anchor anchor = arFragment.getArSceneView().getSession().createAnchor(poseGuardada);
+                AnchorNode anchorNode = new AnchorNode(anchor);
+                anchorNode.setParent(arFragment.getArSceneView().getScene());
 
-        // Instanciamos el modelo y la tarjeta encima del ancla recreada
-        crearNodoVisual(arFragment, anchorNode, producto);
+                crearNodoVisual(arFragment, anchorNode, producto);
+                setupBackgroundTapListener(arFragment);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 
-    /**
-     * Genera e integra los componentes 3D y 2D flotantes sobre el nodo de anclaje
-     */
+    private void setupBackgroundTapListener(ArFragment arFragment) {
+        if (backgroundTapListenerSet || arFragment.getArSceneView() == null) return;
+        
+        arFragment.getArSceneView().getScene().addOnPeekTouchListener((hitTestResult, motionEvent) -> {
+            if (motionEvent.getAction() == MotionEvent.ACTION_UP) {
+                if (hitTestResult.getNode() == null) {
+                    arFragment.getArSceneView().post(this::cerrarTarjetaActiva);
+                } else if (arFragment.getContext() != null) {
+                    // Depuración: Nos dirá qué nodo estamos tocando realmente
+                    String nombre = hitTestResult.getNode().getName();
+                    if (nombre != null && !nombre.isEmpty()) {
+                        Toast.makeText(arFragment.getContext(), "Tocado: " + nombre, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+        });
+        backgroundTapListenerSet = true;
+    }
+
     private void crearNodoVisual(ArFragment arFragment, AnchorNode anchorNode, Productos producto) {
-        // 1. Nodo interactivo para el objeto 3D transformable (rotar/escalar)
         TransformableNode nodoModelo = new TransformableNode(arFragment.getTransformationSystem());
         nodoModelo.setParent(anchorNode);
-        nodoModelo.setLocalScale(new Vector3(0.5f, 0.5f, 0.5f)); // Escala base ajustable
+        nodoModelo.setName(producto.getNombreProducto()); // Asignamos nombre para el Toast de depuración
+        
+        // CONFIGURACIÓN DE TAMAÑO
+        nodoModelo.setLocalScale(new Vector3(4.0f, 4.0f, 4.0f)); 
+        nodoModelo.getScaleController().setMinScale(0.01f);
+        nodoModelo.getScaleController().setMaxScale(25.0f);
 
-        // Cargar el modelo .glb/.gltf desde la URL de Firebase Storage
+        // Colisión balanceada: 0.25m local * escala 4 = 1 metro de área táctil real
+        nodoModelo.setCollisionShape(new Sphere(0.25f));
+
         cargarModelo3DEnNodo(arFragment.getContext(), nodoModelo, producto.getUrlModelo3D());
 
-        // 2. Nodo para la tarjeta o etiqueta informativa flotante (Requerimiento UX/UI)
-        crearEtiquetaFlotanteInformativa(arFragment, anchorNode, producto);
+        // Nodo para la tarjeta informativa (Hijo del modelo para que lo siga)
+        Node etiquetaNode = new Node();
+        etiquetaNode.setParent(nodoModelo);
+        
+        // Escala compensada (0.25 * 4 = 1.0 escala real)
+        etiquetaNode.setLocalScale(new Vector3(0.25f, 0.25f, 0.25f));
+        // Posición: 0.4m local * escala 4 = 1.6 metros de altura real (altura de ojos)
+        etiquetaNode.setLocalPosition(new Vector3(0.0f, 0.4f, 0.0f)); 
+        etiquetaNode.setEnabled(false);
+
+        // Billboard: La tarjeta siempre mira al usuario
+        arFragment.getArSceneView().getScene().addOnUpdateListener(frameTime -> {
+            if (etiquetaNode.isEnabled()) {
+                Vector3 cameraPosition = arFragment.getArSceneView().getScene().getCamera().getWorldPosition();
+                Vector3 nodePosition = etiquetaNode.getWorldPosition();
+                Vector3 direction = Vector3.subtract(cameraPosition, nodePosition);
+                if (direction.length() > 0.01f) {
+                    etiquetaNode.setLookDirection(direction, Vector3.up());
+                }
+            }
+        });
+
+        crearEtiquetaFlotanteInformativa(arFragment, etiquetaNode, producto, anchorNode);
+
+        // Al tocar el modelo 3D, mostramos la tarjeta
+        nodoModelo.setOnTapListener((hitTestResult, motionEvent) -> {
+            arFragment.getArSceneView().post(() -> {
+                if (nodoEtiquetaActivo != null && nodoEtiquetaActivo != etiquetaNode) {
+                    nodoEtiquetaActivo.setEnabled(false);
+                }
+                boolean nuevoEstado = !etiquetaNode.isEnabled();
+                etiquetaNode.setEnabled(nuevoEstado);
+                nodoEtiquetaActivo = nuevoEstado ? etiquetaNode : null;
+                nodoModelo.select();
+            });
+        });
     }
 
-    /**
-     * Carga de forma asíncrona el archivo 3D compatible con ARCore utilizando su URL remota
-     */
-    private void cargarModelo3DEnNodo(Context context, TransformableNode nodo, String urlModelo3D) {
-        if (urlModelo3D == null || urlModelo3D.isEmpty()) {
-            Toast.makeText(context, "URL del modelo 3D no disponible", Toast.LENGTH_SHORT).show();
-            return;
+    public void cerrarTarjetaActiva() {
+        if (nodoEtiquetaActivo != null) {
+            nodoEtiquetaActivo.setEnabled(false);
+            nodoEtiquetaActivo = null;
         }
+    }
 
-        // Sceneform Maintained (com.gorisse.thomas.sceneform) maneja .glb/.gltf directamente
-        // mediante el método setSource(context, Uri) si se habilita setIsFilamentGltf(true).
+    private void cargarModelo3DEnNodo(Context context, TransformableNode nodo, String urlModelo3D) {
+        if (urlModelo3D == null || urlModelo3D.isEmpty()) return;
+
         ModelRenderable.builder()
                 .setSource(context, Uri.parse(urlModelo3D))
                 .setIsFilamentGltf(true)
                 .build()
                 .thenAccept(renderable -> {
                     nodo.setRenderable(renderable);
+                    // Colisión de 1 metro real de diámetro
+                    nodo.setCollisionShape(new Sphere(0.25f));
                     nodo.select();
                 })
                 .exceptionally(throwable -> {
-                    // Log the error for debugging
-                    android.util.Log.e("AR_ERROR", "Error loading model: " + throwable.getMessage(), throwable);
-                    Toast.makeText(context, "Error al cargar el modelo: " + throwable.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(context, "Error cargando modelo: " + throwable.getMessage(), Toast.LENGTH_SHORT).show();
                     return null;
                 });
     }
 
-    /**
-     * Despliega un panel informativo (Card/Etiqueta) flotando arriba del producto en tiempo real
-     */
-    private void crearEtiquetaFlotanteInformativa(ArFragment arFragment, AnchorNode parentNode, Productos producto) {
+    private void crearEtiquetaFlotanteInformativa(ArFragment arFragment, Node etiquetaNode, 
+                                                   Productos producto, AnchorNode parentAnchor) {
         ViewRenderable.builder()
-                .setView(arFragment.getContext(), R.layout.layout_tarjeta_ar_producto) // Inflamos el layout de la tarjeta
+                .setView(arFragment.getContext(), R.layout.layout_tarjeta_ar_producto)
                 .build()
                 .thenAccept(viewRenderable -> {
-                    // Creamos un nodo secundario posicionado ligeramente arriba del modelo 3D (60cm)
-                    AnchorNode etiquetaNode = new AnchorNode();
-                    etiquetaNode.setParent(parentNode);
-                    etiquetaNode.setLocalPosition(new Vector3(0.0f, 0.6f, 0.0f));
+                    viewRenderable.setShadowCaster(false);
+                    viewRenderable.setShadowReceiver(false);
+                    
+                    // Aseguramos un tamaño físico real para que sea legible en el mundo AR (250 DP = 1 metro aprox)
+                    viewRenderable.setSizer(new DpToMetersViewSizer(250));
+                    
                     etiquetaNode.setRenderable(viewRenderable);
+                    
+                    View vista = viewRenderable.getView();
+                    
+                    ((TextView) vista.findViewById(R.id.txtArNombreProducto)).setText(producto.getNombreProducto());
+                    ((TextView) vista.findViewById(R.id.txtArPrecioProducto)).setText(String.format("$%.2f", producto.getPrecioProducto()));
+                    ((TextView) vista.findViewById(R.id.txtArDescripcionProducto)).setText(producto.getDescripcionProducto());
+                    ((TextView) vista.findViewById(R.id.txtArStockProducto)).setText("Stock: " + producto.getStockProducto());
+                    ((TextView) vista.findViewById(R.id.txtArUbicacionProducto)).setText("Ubicación: " + producto.getUbicacionEstablecimiento());
 
-                    // Mapeamos los datos en tiempo real de Firebase a las vistas de la tarjeta
-                    View vistaInstanciada = viewRenderable.getView();
-                    TextView txtNombre = vistaInstanciada.findViewById(R.id.txtArNombreProducto);
-                    TextView txtPrecio = vistaInstanciada.findViewById(R.id.txtArPrecioProducto);
-                    TextView txtStock = vistaInstanciada.findViewById(R.id.txtArStockProducto);
+                    // Listener del botón cerrar (X)
+                    vista.findViewById(R.id.btnCerrarTarjeta).setOnClickListener(v -> {
+                        arFragment.getArSceneView().post(() -> {
+                            etiquetaNode.setEnabled(false);
+                            if (nodoEtiquetaActivo == etiquetaNode) {
+                                nodoEtiquetaActivo = null;
+                            }
+                        });
+                    });
 
-                    txtNombre.setText(producto.getNombreProducto());
-                    txtPrecio.setText(String.format("$%.2f", producto.getPrecioProducto()));
-                    txtStock.setText("Stock: " + producto.getStockProducto());
+                    // Botón Quitar del inventario
+                    vista.findViewById(R.id.btnQuitarProducto).setOnClickListener(v -> {
+                        arFragment.getArSceneView().post(() -> {
+                            parentAnchor.setParent(null);
+                            if (nodoEtiquetaActivo == etiquetaNode) {
+                                nodoEtiquetaActivo = null;
+                            }
+                            
+                            producto.setPosicionX(0);
+                            producto.setPosicionY(0);
+                            producto.setPosicionZ(0);
+                            producto.setIdSucursalAsignada(""); 
+                            
+                            mDatabase.child(producto.getIdProducto()).setValue(producto)
+                                    .addOnSuccessListener(aVoid -> {
+                                        if (arFragment.getContext() != null) {
+                                            Toast.makeText(arFragment.getContext(), 
+                                                "Producto removido", Toast.LENGTH_SHORT).show();
+                                        }
+                                    });
+                        });
+                    });
                 })
                 .exceptionally(throwable -> {
-                    Toast.makeText(arFragment.getContext(), "Error al cargar etiqueta informativa", Toast.LENGTH_SHORT).show();
+                    if (arFragment.getContext() != null) {
+                        Toast.makeText(arFragment.getContext(), "Error cargando UI AR", Toast.LENGTH_SHORT).show();
+                    }
                     return null;
                 });
     }
